@@ -28,10 +28,9 @@ app.post("/api/findUser", (req, res) => {
                 res.send({ err : err })
             }
             if (result.length != 0) {
-                // res.send(result);
-                res.send({ val: 1 });   // 이미 가입한 회원 (val = 1)
+                res.send(result);   // 이미 가입한 회원 (val = 1)
             } else {
-                res.send({ val: 0 });   // 회원가입하는 회원 (val = 0)
+                res.send([{ id: "empty_user" }]);   // 회원가입하는 회원 (val = 0)
             }
         }
     )
@@ -65,7 +64,7 @@ app.post("/api/addUser", (req, res) => {
     const nickname = req.body.nickname;
     const email = req.body.email;
     const mobile = req.body.mobile;
-    const place = req.body.place;
+    const place = req.body.place;   //영어로 넣기!
 
     db.query(
         "INSERT INTO users (id, name, nickname, email, mobile, place) VALUES (?,?,?,?,?,?)",
@@ -80,21 +79,20 @@ app.post("/api/addUser", (req, res) => {
     )
 })
 
-// 홈화면에서 지역별 item 리턴
+// 홈화면에서 지역별 && available한 item 띄우기
 app.get('/api/getItems/:place', (req, res) => {
     let {place} = req.params;
 
+    console.log(place);
+
     db.query(
-        "SELECT * FROM items WHERE place = ?", [place],
+        "SELECT * FROM items WHERE item_place = ? AND available = ?", [place, 1],
         (err, result) => {
             console.log(result);
             if (err) {
                 res.send({ err : err })
-            }
-            if (result.length != 0) {
-                res.send(result)
             } else {
-                res.send({ msg: "empty items" })
+                res.send(result)
             }
         }
     )
@@ -110,17 +108,40 @@ app.post('/api/addItem', (req, res) => {
     const item_date_start = req.body.item_date_start;
     const item_date_end = req.body.item_date_end;
     const item_price = req.body.item_price;
-    const item_description = req.body.item_description;    
+    const item_description = req.body.item_description;
+
 
     db.query(
-        "INSERT INTO items (user_id, post_time, item_image, item_name, item_place, item_date_start, item_date_end, item_price, item_description) VALUES (?,?,?,?,?,?,?,?,?)",
-        [user_id, post_time, item_image, item_name, item_place, item_date_start, item_date_end, item_price, item_description],
+        "INSERT INTO items (user_id, post_time, item_image, item_name, item_place, item_date_start, item_date_end, item_price, item_description, available) VALUES (?,?,?,?,?,?,?,?,?,?)",
+        [user_id, post_time, item_image, item_name, item_place, item_date_start, item_date_end, item_price, item_description, 1],
         (err, result) => {
             if (err) {
                 console.log(err);
                 res.send({ msg: "addItems failed"});
+            } else {
+                res.send({ msg : "addItems successed"});
             }
-            res.send({ msg : "addItems successed"});
+        }
+    )
+})
+
+//to_user가 빌리기 버튼을 눌렀을 때 글 작성자인 from_user와 거래를 성립함
+app.post('api/borrowItem', (req, res) => {
+    const from_user = req.body.from_user;
+    const to_user = req.body.to_user;
+    const contract_item = req.body.contract_item;
+    const contract_time = new Date();
+
+    db.query(
+        "INSERT INTO contracts (from_user, to_user, contract_item, contract_time) VALUES (?,?,?,?)",
+        [from_user, to_user, contract_item, contract_time],
+        (err, result) => {
+            if (err) {
+                console.log(err);
+                res.send({ msg : "borrowItem failed"});
+            } else {
+                res.send({ msg : "borrowItem succeeded"});
+            }
         }
     )
 })

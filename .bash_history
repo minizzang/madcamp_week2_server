@@ -69,3 +69,37 @@ nodemon server.js
 npm start
 mysql -u mini -p
 npm start
+mysql -u mini -p
+git remote add origin https://github.com/minizzang/madcamp_week2_server.git
+git remote origin add https://github.com/minizzang/madcamp_week2_server.git
+ls
+sudo apt-get install git
+git config --global user.name minizzang
+git config --global user.name minizzang@kaist.ac.kr
+git init
+git add .
+git git commit -m "Initial commit"
+git commit -m "Initial commit"
+git config --global user.email minizzang@kaist.ac.kr
+git config --global user.name mini
+git remote add origin https://github.com/minizzang/madcamp_week2_server.git
+git push origin master
+git push
+git push --set-upstream origin master
+git status
+git pull
+git pull origin main
+git reset HEAD
+git add .
+git rm --cached .nvm
+git rm -f  --cached .nvm
+git push
+git push --set-upstream origin master
+git add .
+git commit -m "Add : basic users backend"
+git push
+git branch
+git checkout main
+git branch
+git pull origin main
+git branch
