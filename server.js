@@ -125,26 +125,171 @@ app.post('/api/addItem', (req, res) => {
     )
 })
 
-//to_user가 빌리기 버튼을 눌렀을 때 글 작성자인 from_user와 거래를 성립함
-app.post('api/borrowItem', (req, res) => {
+//item_id로 item의 소유자 찾기
+app.get('/api/getItemOwner/:item_id', (req, res) => {
+    let {item_id} = req.params;
+
+    db.query(
+        "SELECT user_id FROM items WHERE item_id = ?", [item_id],
+        (err, result) => {
+            if (err) {
+                res.send({ err : err })
+            } else {
+                // console.log(result);
+                res.send(result);
+            }
+        }
+    )
+})
+
+//to_user가 빌리기 버튼을 눌렀을 때 contracts table에 row 추가
+app.post('/api/borrowItem', (req, res) => {
     const from_user = req.body.from_user;
     const to_user = req.body.to_user;
     const contract_item = req.body.contract_item;
     const contract_time = new Date();
 
     db.query(
-        "INSERT INTO contracts (from_user, to_user, contract_item, contract_time) VALUES (?,?,?,?)",
-        [from_user, to_user, contract_item, contract_time],
+        "INSERT INTO contracts (from_user, to_user, contract_item, contract_time, confirm) VALUES (?,?,?,?,?)",
+        [from_user, to_user, contract_item, contract_time, 0],
         (err, result) => {
             if (err) {
                 console.log(err);
-                res.send({ msg : "borrowItem failed"});
+                res.send({ msg : "borrowItem request failed"});
             } else {
-                res.send({ msg : "borrowItem succeeded"});
+                res.send({ msg : "borrowItem request succeeded"});
             }
         }
     )
 })
+
+
+// 내가 빌리기를 신청한 item 목록 (input : to_user / constraint : confirm=0)
+app.get('/api/getBorrowReqItems/:user_id', (req, res) => {
+    let {user_id} = req.params;
+    
+    db.query(
+        "SELECT * FROM contracts WHERE to_user = ? AND confirm = ?", [user_id, 0],
+        (err, result) => {
+            if (err) {
+                res.send({ err : err })
+            } else {
+                // console.log(result);
+                res.send(result);
+            }
+        }
+    )
+})
+
+// 내가 빌려주겠다고 올린 아이템 목록 (input : user_id / output : item_id, item_name / constraint : available=1)
+app.get('/api/getMyItemPosted/:user_id', (req, res) => {
+    let {user_id} = req.params;
+
+    db.query(
+        "SELECT item_id, item_name FROM items WHERE user_id = ? AND available = ?", [user_id, 1],
+        (err, result) => {
+            if (err) {
+                res.send({ msg : "getMyItemPosted failed"});
+            } else {
+                res.send(result);
+            }
+        }
+    )
+})
+
+// 내 특정 물건을 빌리고 싶어하는 사람들 목록 (input : from_user, item_id / constraint : confirm=0)
+app.get('/api/getPeopleReqItemToMe/:user_id/:item_id', (req, res) => {
+    let {user_id, item_id} = req.params;
+
+    db.query(
+        "SELECT to_user FROM contracts WHERE from_user = ? AND contract_item = ? AND confirm = ?", [user_id, item_id, 0],
+        (err, result) => {
+            if (err) {
+                res.send({ msg : "getPeopleReqItemToMe failed"});
+            } else {
+                res.send(result);
+            }
+        }
+    )
+})
+
+//from_user가 빌려주기 버튼을 눌렀을 때 contract item의 confirm을 1로 변경 (input : from_user, item_id, to_user)
+app.post('/api/confirmBorrow', (req, res) => {
+    const from_user = req.body.from_user;
+    const to_user = req.body.to_user;
+    const item_id = req.body.item_id;
+
+    db.query(
+        "UPDATE contracts SET confirm=1 WHERE from_user = ? AND to_user = ? AND contract_item = ?", [from_user, to_user, item_id],
+        (err, result) => {
+            if (err) {
+                console.log(err);
+                res.send({ msg : "confirmBorrow Error"});
+            } else {
+                //item_id가 같고 confirm이 0인 다른 row는 모두 지움
+                db.query(
+                    "DELETE FROM contracts WHERE contract_item = ? AND confirm = ?", [item_id, 0],
+                    (err, result) => {
+                        if (err) {
+                            res.send({ msg : "Delete other requests Error"});
+                        } else {
+                            // 빌리기에 성공하면 item의 available을 0으로 변경하기
+                            db.query(
+                                "UPDATE items SET available=0 WHERE item_id = ?", [item_id],
+                                (err, result) => {
+                                    if (err) {
+                                        res.send({ msg : "Update item unavailable Error"});
+                                    } else {
+                                        res.send({ msg : "confirmBorrow Succeeded"});
+                                        console.log("confirm success 3")
+                                    }
+                                }
+                            )
+                            console.log("confirm success 2")
+                        }
+                    }
+                )
+                console.log("confirm success 1")
+            }
+        }
+    )
+})
+
+
+// 내가 빌린/빌렸던 물건 목록 (input : to_user / constraint : confirm=1)
+app.get('/api/getMyBorrowHistory/:user_id', (req, res) => {
+    let {user_id} = req.params;
+    
+    db.query(
+        "SELECT * FROM contracts WHERE to_user = ? AND confirm = ?", [user_id, 1],
+        (err, result) => {
+            if (err) {
+                res.send({ err : err })
+            } else {
+                // console.log(result);
+                res.send(result);
+            }
+        }
+    )
+})
+
+// 내가 빌려준/빌려줬던 물건 목록 (input : from_user / constraint : confirm=1)
+app.get('/api/getMyItemHistory/:user_id', (req, res) => {
+    let {user_id} = req.params;
+    
+    db.query(
+        "SELECT * FROM contracts WHERE from_user = ? AND confirm = ?", [user_id, 1],
+        (err, result) => {
+            if (err) {
+                res.send({ err : err })
+            } else {
+                // console.log(result);
+                res.send(result);
+            }
+        }
+    )
+})
+
 
 // app.get('/api/users/:type', async (req, res) => {
 //     let {type} = req.params;
@@ -184,9 +329,13 @@ let users = ['abc','홍길동', '동에번쩍서에번쩍', 'gildong@naver.com',
 //     }
 // })
 
+
+
+// dummy data 처리용 api
+
 app.get('/db/users', (req, res) => {
     db.query('SELECT * from users', (err, rows) => {
-        if (err) throw error;
+        if (err) throw err;
         console.log('User info is: ', rows);
         res.send(rows);
     });
@@ -194,7 +343,36 @@ app.get('/db/users', (req, res) => {
 
 app.get('/db/items', (req, res) => {
     db.query('SELECT * from items', (err, rows) => {
-        if (err) throw error;
+        if (err) throw err;
         res.send(rows);
+    });
+});
+
+app.get('/db/contracts', (req, res) => {
+    db.query('SELECT * from contracts', (err, rows) => {
+        if (err) throw err;
+        res.send(rows);
+    });
+});
+
+app.get('/db/delete/users/:user_id', (req, res) => {
+    let {user_id} = req.params;
+
+    db.query(
+        "DELETE FROM users WHERE user_id = ?", [user_id],
+        (err, result) => {
+            if (err) throw err;
+            res.send({ msg : "success" })
+    });
+});
+
+app.get('/db/delete/items/:item_id', (req, res) => {
+    let {item_id} = req.params;
+
+    db.query(
+        "DELETE FROM items WHERE item_id = ?", [item_id],
+        (err, result) => {
+            if (err) throw err;
+            res.send({ msg : "success" })
     });
 });
