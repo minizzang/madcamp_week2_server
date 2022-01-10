@@ -103,3 +103,15 @@ git checkout main
 git branch
 git pull origin main
 git branch
+mysql -u mini -p
+git add .
+git commit -m "Fix : home fragment show available items"
+git push
+git add .
+git commit -m "Add : make borrow contracts api"
+git push
+npm start
+mysql -u mini -p
+npm start
+mysql -u mini -p
+npm start

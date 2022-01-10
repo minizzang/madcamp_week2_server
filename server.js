@@ -1,20 +1,50 @@
 const express = require('express');
-const req = require('express/lib/request');
 const db = require('./index.js');
 const app = express();
 var bodyParser = require('body-parser');
-const BASE_URL = "https://172.10.5.90:80";
 
-app.use(bodyParser.json());
+const http = require('http').createServer(app);
+const { Socket } = require('socket.io');
+// const server = http.createServer(app)
+const io = require('socket.io')(http)
+
+app.use(express.json({ limit : "50mb" }));
+app.use(bodyParser.urlencoded({ extended: true }));
+app.use(express.urlencoded({ limit:"50mb", extended: false }));
 
 db.connect(function(err){
     if (err) console.log(error)
     else console.log("db connected!")
 });
 
-app.listen(80, () => {
+http.listen(80, () => {
     console.log("Start server");
 });
+
+
+// socket io chatting
+io.on('connection', (socket) => {
+    console.log(`socket connected : ${socket.id}`)
+    socket.on('enter', (data) => {
+        console.log(`entered`)
+        const roomData = JSON.parse(data)
+        const username = roomData.username
+        const roomNumber = roomData.num
+        socket.join(`${roomNumber}`)
+        console.log(`[Username: ${username}] entered [room number]: ${roomNumber}]`)
+    })
+    socket.on('newMessage', (data) => {
+        const messageData = JSON.parse(data)
+        console.log(`[Room Number ${messageData.to}] ${messageData.from} : ${messageData.content}`)
+        io.to(`${messageData.to}`).emit('update', JSON.stringify(messageData))
+    })
+    socket.on('disconnect', () => {
+        console.log(`socket disconnected : ${socket.id}`)
+    })
+})
+// server.listen(80, function(){
+//     console.log(`Node app is running on port 80`);
+// });
 
 
 // user 조회 요청 (로그인 시 등록된 유저인지 확인)
@@ -110,7 +140,6 @@ app.post('/api/addItem', (req, res) => {
     const item_price = req.body.item_price;
     const item_description = req.body.item_description;
 
-
     db.query(
         "INSERT INTO items (user_id, post_time, item_image, item_name, item_place, item_date_start, item_date_end, item_price, item_description, available) VALUES (?,?,?,?,?,?,?,?,?,?)",
         [user_id, post_time, item_image, item_name, item_place, item_date_start, item_date_end, item_price, item_description, 1],
@@ -125,17 +154,33 @@ app.post('/api/addItem', (req, res) => {
     )
 })
 
-//item_id로 item의 소유자 찾기
-app.get('/api/getItemOwner/:item_id', (req, res) => {
+//item_id로 item 정보 찾기
+app.get('/api/getItemDetail/:item_id', (req, res) => {
     let {item_id} = req.params;
 
     db.query(
-        "SELECT user_id FROM items WHERE item_id = ?", [item_id],
+        "SELECT * FROM items WHERE item_id = ?", [item_id],
         (err, result) => {
             if (err) {
                 res.send({ err : err })
             } else {
                 // console.log(result);
+                res.send(result);
+            }
+        }
+    )
+})
+
+//user_id로 user의 닉네임 찾기
+app.get('/api/getUserNickname/:user_id', (req, res) => {
+    let {user_id} = req.params;
+
+    db.query(
+        "SELECT nickname FROM users WHERE id = ?", [user_id],
+        (err, result) => {
+            if (err) {
+                res.send({ err : err })
+            } else {
                 res.send(result);
             }
         }
@@ -182,10 +227,10 @@ app.get('/api/getBorrowReqItems/:user_id', (req, res) => {
 })
 
 // 내가 빌려주겠다고 올린 아이템 목록 (input : user_id / output : item_id, item_name / constraint : available=1)
-app.get('/api/getMyItemPosted/:user_id', (req, res) => {
+app.get('/api/getMyItemPosted/:user_id', async (req, res) => {
     let {user_id} = req.params;
 
-    db.query(
+    await db.query(
         "SELECT item_id, item_name FROM items WHERE user_id = ? AND available = ?", [user_id, 1],
         (err, result) => {
             if (err) {
@@ -197,16 +242,18 @@ app.get('/api/getMyItemPosted/:user_id', (req, res) => {
     )
 })
 
-// 내 특정 물건을 빌리고 싶어하는 사람들 목록 (input : from_user, item_id / constraint : confirm=0)
-app.get('/api/getPeopleReqItemToMe/:user_id/:item_id', (req, res) => {
+// 내 특정 물건을 빌리고 싶어하는 사람들 닉네임 (input : from_user, item_id / constraint : confirm=0)
+app.get('/api/getPeopleReqItemToMe/:user_id/:item_id', async (req, res) => {
+
     let {user_id, item_id} = req.params;
 
-    db.query(
-        "SELECT to_user FROM contracts WHERE from_user = ? AND contract_item = ? AND confirm = ?", [user_id, item_id, 0],
+    await db.query(
+        "SELECT nickname FROM contracts JOIN users ON(users.id = contracts.to_user) WHERE from_user = ? AND contract_item = ? AND confirm = ?", [user_id, item_id, 0],
         (err, result) => {
             if (err) {
                 res.send({ msg : "getPeopleReqItemToMe failed"});
             } else {
+                console.log("nickname passed!");
                 res.send(result);
             }
         }
@@ -290,44 +337,65 @@ app.get('/api/getMyItemHistory/:user_id', (req, res) => {
     )
 })
 
+// chatting 신청했을 때, user1이 item 주인, user2가 채팅 신청한 사람
+app.post('/api/getRoomNum', (req, res) => {
+    const user1_id = req.body.user1_id;
+    const user2_id = req.body.user2_id;
 
-// app.get('/api/users/:type', async (req, res) => {
-//     let {type} = req.params;
-
-//     console.log(type);
-//     res.send('ok');
-// })
-
-app.get('/about', (req, res) => {
-    console.log("about request!");
-    res.send('about page')
+    db.query(
+        "INSERT INTO chatting_room (user1_id, user2_id) VALUES (?,?)",
+        [user1_id, user2_id],
+        (err, result) => {
+            if (err) {
+                console.log(err);
+                res.send({ msg : "getRoomNum failed"});
+            } else {
+                console.log(result.insertId);
+                res.send({ msg : result.insertId});
+            }
+        }
+    )
 })
 
-app.get('/items', (req, res) => {
-    console.log('this is items! /items');
-    res.json(items);
+// 내가 user1인 chatting room id와 상대 nickname return
+app.get('/api/getUser1ChattingRoom/:user_id', async (req, res) => {
+
+    let {user_id} = req.params;
+
+    await db.query(
+        "SELECT nickname, room_id FROM chatting_room JOIN users ON(users.id = chatting_room.user2_id) WHERE user1_id = ?", [user_id],
+        (err, result) => {
+            if (err) {
+                res.send({ msg : "getUser1ChattingRoom failed"});
+            } else {
+                console.log("getUser1ChattingRoom passed!");
+                res.send(result);
+            }
+        }
+    )
 })
 
-app.post('/post', (req, res) => {
-    var inputData;
+// 내가 user2인 chatting room id와 상대 nickname return
+app.get('/api/getUser2ChattingRoom/:user_id', async (req, res) => {
 
-    // req.on('data,')
+    let {user_id} = req.params;
+
+    await db.query(
+        "SELECT nickname, room_id FROM chatting_room JOIN users ON(users.id = chatting_room.user1_id) WHERE user2_id = ?", [user_id],
+        (err, result) => {
+            if (err) {
+                res.send({ msg : "getUser2ChattingRoom failed"});
+            } else {
+                console.log("getUser2ChattingRoom passed!");
+                res.send(result);
+            }
+        }
+    )
 })
-
 
 let sql = "INSERT INTO users (id, name, nickname, email, mobile) VALUES(?,?,?,?,?)";
 // let params = ['test', 'ticket', 600];
 let users = ['abc','홍길동', '동에번쩍서에번쩍', 'gildong@naver.com', '010-1111-2222'];
-
-// console.log('hihihi');
-// db.query(sql, users, function(err, rows, fields){
-//     if (err){
-//         console.log(err);
-//     }
-//     else {
-//         console.log(rows.insertId);
-//     }
-// })
 
 
 
@@ -350,6 +418,13 @@ app.get('/db/items', (req, res) => {
 
 app.get('/db/contracts', (req, res) => {
     db.query('SELECT * from contracts', (err, rows) => {
+        if (err) throw err;
+        res.send(rows);
+    });
+});
+
+app.get('/db/chatting_room', (req, res) => {
+    db.query('SELECT * from chatting_room', (err, rows) => {
         if (err) throw err;
         res.send(rows);
     });
