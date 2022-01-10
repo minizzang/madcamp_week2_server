@@ -115,3 +115,7 @@ mysql -u mini -p
 npm start
 mysql -u mini -p
 npm start
+npm install socket.io
+npm start
+npm install http
+npm start

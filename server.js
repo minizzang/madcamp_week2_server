@@ -132,7 +132,8 @@ app.get('/api/getItems/:place', (req, res) => {
 app.post('/api/addItem', (req, res) => {
     const user_id = req.body.user_id;
     const post_time = new Date();
-    const item_image = req.body.item_image;
+    // const item_image = req.body.item_image;
+    const item_image = "null";  // 나중에 db에서 column 없애기
     const item_name = req.body.item_name;
     const item_place = req.body.item_place;
     const item_date_start = req.body.item_date_start;
@@ -148,7 +149,7 @@ app.post('/api/addItem', (req, res) => {
                 console.log(err);
                 res.send({ msg: "addItems failed"});
             } else {
-                res.send({ msg : "addItems successed"});
+                res.send({ msg : result.insertId });
             }
         }
     )
@@ -172,7 +173,7 @@ app.get('/api/getItemDetail/:item_id', (req, res) => {
 })
 
 //user_id로 user의 닉네임 찾기
-app.get('/api/getUserNickname/:user_id', (req, res) => {
+app.get('/api/getUserNickname/:user_id', async (req, res) => {
     let {user_id} = req.params;
 
     db.query(
@@ -230,7 +231,7 @@ app.get('/api/getBorrowReqItems/:user_id', (req, res) => {
 app.get('/api/getMyItemPosted/:user_id', async (req, res) => {
     let {user_id} = req.params;
 
-    await db.query(
+    db.query(
         "SELECT item_id, item_name FROM items WHERE user_id = ? AND available = ?", [user_id, 1],
         (err, result) => {
             if (err) {
@@ -247,8 +248,8 @@ app.get('/api/getPeopleReqItemToMe/:user_id/:item_id', async (req, res) => {
 
     let {user_id, item_id} = req.params;
 
-    await db.query(
-        "SELECT nickname FROM contracts JOIN users ON(users.id = contracts.to_user) WHERE from_user = ? AND contract_item = ? AND confirm = ?", [user_id, item_id, 0],
+    db.query(
+        "SELECT nickname, to_user FROM contracts JOIN users ON(users.id = contracts.to_user) WHERE from_user = ? AND contract_item = ? AND confirm = ?", [user_id, item_id, 0],
         (err, result) => {
             if (err) {
                 res.send({ msg : "getPeopleReqItemToMe failed"});
@@ -362,7 +363,7 @@ app.get('/api/getUser1ChattingRoom/:user_id', async (req, res) => {
 
     let {user_id} = req.params;
 
-    await db.query(
+    db.query(
         "SELECT nickname, room_id FROM chatting_room JOIN users ON(users.id = chatting_room.user2_id) WHERE user1_id = ?", [user_id],
         (err, result) => {
             if (err) {
@@ -380,7 +381,7 @@ app.get('/api/getUser2ChattingRoom/:user_id', async (req, res) => {
 
     let {user_id} = req.params;
 
-    await db.query(
+    db.query(
         "SELECT nickname, room_id FROM chatting_room JOIN users ON(users.id = chatting_room.user1_id) WHERE user2_id = ?", [user_id],
         (err, result) => {
             if (err) {
@@ -434,7 +435,7 @@ app.get('/db/delete/users/:user_id', (req, res) => {
     let {user_id} = req.params;
 
     db.query(
-        "DELETE FROM users WHERE user_id = ?", [user_id],
+        "ALTER TABLE users DROP FOREIGN KEY WHERE id = ?", [user_id],
         (err, result) => {
             if (err) throw err;
             res.send({ msg : "success" })
@@ -446,6 +447,17 @@ app.get('/db/delete/items/:item_id', (req, res) => {
 
     db.query(
         "DELETE FROM items WHERE item_id = ?", [item_id],
+        (err, result) => {
+            if (err) throw err;
+            res.send({ msg : "success" })
+    });
+});
+
+app.get('/db/delete/chatting_room/:room_id', (req, res) => {
+    let {room_id} = req.params;
+
+    db.query(
+        "DELETE FROM chatting_room WHERE room_id = ?", [room_id],
         (err, result) => {
             if (err) throw err;
             res.send({ msg : "success" })
