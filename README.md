@@ -5,6 +5,8 @@
 
 
 ## Backend
+  - 빌리지(Village) 앱 요청을 처리하기 위해 api 요청으로 get, post method를 이용했습니다.
+  - 앱 내의 채팅 기능을 구현하기 위해 socket.io를 이용한 통신을 이용했습니다.
 
 ## Database
   - 빌리지(Village) 앱을 위한 Database 구축
