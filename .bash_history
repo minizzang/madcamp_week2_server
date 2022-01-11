@@ -129,3 +129,9 @@ git commit -m "little changes"
 git push
 npm start
 mysql -u mini -p
+npm start
+git status
+git add .
+git commit -m "Backend : final commit"
+git push
+git pull
