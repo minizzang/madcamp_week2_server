@@ -479,7 +479,7 @@ app.get('/db/delete/users/:user_id', (req, res) => {
     let {user_id} = req.params;
 
     db.query(
-        "ALTER TABLE users DROP FOREIGN KEY WHERE id = ?", [user_id],
+        "DELETE FROM users WHERE id = ?", [user_id],
         (err, result) => {
             if (err) throw err;
             res.send({ msg : "success" })
@@ -491,6 +491,17 @@ app.get('/db/delete/items/:item_id', (req, res) => {
 
     db.query(
         "DELETE FROM items WHERE item_id = ?", [item_id],
+        (err, result) => {
+            if (err) throw err;
+            res.send({ msg : "success" })
+    });
+});
+
+app.get('/db/delete/contracts/:from_user/:to_user/:item_id', (req, res) => {
+    let {from_user, to_user, item_id} = req.params;
+
+    db.query(
+        "DELETE FROM contracts WHERE from_user = ? AND to_user = ? AND contract_item = ?", [from_user, to_user, item_id],
         (err, result) => {
             if (err) throw err;
             res.send({ msg : "success" })
