@@ -394,6 +394,43 @@ app.get('/api/getUser2ChattingRoom/:user_id', async (req, res) => {
     )
 })
 
+// chatting 저장
+app.post('/api/saveChat', (req, res) => {
+    const room_id = req.body.room_id;
+    const from_user = req.body.from_user;
+    const content = req.body.content;
+    const timestamp = req.body.timestamp;
+
+    db.query(
+        "INSERT INTO chatting_message (room_id, from_user, content, timestamp) VALUES (?,?,?,?)",
+        [room_id, from_user, content, timestamp],
+        (err, result) => {
+            if (err) {
+                console.log(err);
+                res.send({ msg : "saveChat failed"});
+            } else {
+                res.send({ msg : "saveChat success"});
+            }
+        }
+    )
+})
+
+// chatting 불러오기
+app.get('/api/getChats/:room_id', (req, res) => {
+    let {room_id} = req.params;
+    
+    db.query(
+        "SELECT * FROM chatting_message WHERE room_id = ?", [room_id],
+        (err, result) => {
+            if (err) {
+                res.send({ err : err })
+            } else {
+                res.send(result);
+            }
+        }
+    )
+})
+
 let sql = "INSERT INTO users (id, name, nickname, email, mobile) VALUES(?,?,?,?,?)";
 // let params = ['test', 'ticket', 600];
 let users = ['abc','홍길동', '동에번쩍서에번쩍', 'gildong@naver.com', '010-1111-2222'];
@@ -426,6 +463,13 @@ app.get('/db/contracts', (req, res) => {
 
 app.get('/db/chatting_room', (req, res) => {
     db.query('SELECT * from chatting_room', (err, rows) => {
+        if (err) throw err;
+        res.send(rows);
+    });
+});
+
+app.get('/db/chatting_message', (req, res) => {
+    db.query('SELECT * from chatting_message', (err, rows) => {
         if (err) throw err;
         res.send(rows);
     });

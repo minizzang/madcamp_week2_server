@@ -119,3 +119,13 @@ npm install socket.io
 npm start
 npm install http
 npm start
+mysql -u mini -p
+git add .
+git commit -m "Add : socket io for chatting"
+git push
+npm start
+git add .
+git commit -m "little changes"
+git push
+npm start
+mysql -u mini -p
